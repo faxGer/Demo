@@ -1,1 +1,153 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice Web App</title>
+    <style>
+        :root {
+            --primary: #007bff;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            background-color: #f4f7f6;
+        }
+        #loader {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #ffffff;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 999;
+            transition: opacity 0.4s ease;
+        }
+        #loader.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        #status-text {
+            margin-top: 20px;
+            font-size: 16px;
+            color: #333;
+            font-weight: 500;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        #main-app {
+            width: 100%;
+            height: 100%;
+            border: none;
+            opacity: 0;
+            transition: opacity 0.4s ease;
+        }
+        #main-app.loaded {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loader">
+        <div class="spinner"></div>
+        <div id="status-text">Loading application...</div>
+    </div>
+
+    <iframe id="main-app"></iframe>
+
+    <script>
+        const iframe = document.getElementById('main-app');
+        const loader = document.getElementById('loader');
+        const statusText = document.getElementById('status-text');
+        let fallbackTimer = null;
+        let explicitLoadInitiated = false;
+
+        // আইফ্রেমের সিকিউরিটি পলিসি ডাইনামিকালি সেট করা হলো
+        iframe.setAttribute('sandbox', 'allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts allow-downloads allow-top-navigation allow-top-navigation-by-user-activation');
+        iframe.setAttribute('allow', 'geolocation; microphone; camera; clipboard-write;');
+
+        // ১. টু-ওয়ে ক্রস-অরিজিন মেসেজিং ইঞ্জিন
+        window.addEventListener('message', function(event) {
+          if (!event.origin.startsWith('https://script.google.com')) return;
+          
+          try {
+            const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+            if (data.action === 'sync_complete') {
+              statusText.innerText = "Data Synced Safely";
+            }
+          } catch (e) {
+            console.log("Received raw iframe message:", event.data);
+          }
+        });
+
+        // ২. স্ট্রাকচারাল রেজিস্ট্রেশনস (আইফ্রেম লোড হ্যান্ডলার)
+        iframe.onload = function() {
+          if (!explicitLoadInitiated) return;
+
+          if (fallbackTimer) {
+            clearTimeout(fallbackTimer);
+          }
+          
+          statusText.innerText = "Syncing with Server...";
+          setTimeout(() => {
+            iframe.classList.add('loaded');
+            loader.classList.add('hidden');
+          }, 300);
+        };
+
+        window.addEventListener('offline', () => {
+          statusText.innerText = "Offline - Check Connection";
+          statusText.style.color = "#ff4757";
+        });
+
+        window.addEventListener('online', () => {
+          statusText.innerText = "Reconnecting...";
+          statusText.style.color = "var(--primary, #007bff)"; 
+        });
+
+        // সেফটি ইঞ্জিন ফলব্যাক টাইম ৬ সেকেন্ডে নামিয়ে আনা হলো যাতে দ্রুত লোড হয়
+        fallbackTimer = setTimeout(() => {
+          if (!iframe.classList.contains('loaded')) {
+            statusText.innerText = "Loading view...";
+            iframe.classList.add('loaded');
+            loader.classList.add('hidden');
+          }
+        }, 6000);
+
+        // আইওএস (iOS) ওয়েবকিট স্কেল মিটিগেশন
+        document.body.addEventListener('gesturestart', function (e) {
+          e.preventDefault();
+        });
+
+        // ৩. একটিভ রেজোলিউশন এক্সিকিউশন ফেজ
+        (function() {
+          const baseUrl = "https://script.google.com/macros/s/AKfycbwxyjsV0jXzNQ_mt0cB9CiNXHNbPLmFxrU7aaobK4Xnp8gzDefawZC-ADciGb3dHYl0AA/exec";
+          const targetUrl = baseUrl + (baseUrl.includes('?') ? '&' : '?') + '_nc=' + Date.now();
+          
+          explicitLoadInitiated = true;
+          iframe.src = targetUrl; 
+        })();
+    </script>
+
+</body>
+</html>
